@@ -1,38 +1,56 @@
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-import time
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import pandas as pd
+import datetime
 
-from selenium.webdriver.ie.webdriver import DEFAULT_HOST
+browser = webdriver.Firefox()
+browser.get('https://www.chileautos.cl/vehiculos/')
 
-options = Options()
-options.add_argument("--disable.infobars")
-options.add_experimental_option("prefs", {
-    "profile.default_content_setting_values.notifications": 1
-})
+hora = '{:%Y_%b_%d_%H_%M_%S}'.format(datetime.datetime.now())
 
-driver = webdriver.Chrome(chrome_options=options)
-driver.get('https://www.chileautos.cl/vehiculos/autos-veh%C3%ADculo/')
+#Crear dataframe vacío con índice
+df = pd.DataFrame(columns = ['Año', 'Modelo', 'Precio', 'Kms', 'Transmision', 't_combustible', 'Href'])
+i = 0
 
-time.sleep(3)
+for i in range(84):
 
-# Buscar datos 
+    element = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
+        (By.CSS_SELECTOR, 'body > div.listing > div.container.listing-container > div.row.flex-nowrap.no-gutters > div:nth-child(1) > div:nth-child(3) > div:nth-child(2) > nav > ul > li:nth-child(7) > a')))
 
-lista_precios = driver.find_elements_by_tag_name('ul li a div div')
+    elem_list = browser.find_elements(By.CSS_SELECTOR, "div.card-body")
 
-print("Listaokk")
+    for auto in elem_list:
 
-time.sleep(2)
+        try:
+            t_combustible = (auto.find_element(By.TAG_NAME, 'div.col > ul > li:nth-child(3)').text)
+            years = (auto.find_element(By.TAG_NAME, 'h3 > a').text[0:4])
+            modelos = (auto.find_element(By.TAG_NAME, 'h3 > a').text[5:])
+            precios = (auto.find_element(By.CLASS_NAME, 'price > a').text)
+            kms = (auto.find_element(By.TAG_NAME, 'div.col > ul > li:nth-child(1)').text)
+            transmision = (auto.find_element(By.TAG_NAME, 'div.col > ul > li:nth-child(2)').text) 
+            href = (auto.find_element(By.CLASS_NAME, 'price > a').get_attribute('href'))
 
-autos_lista = []
+            df = df.append({ 'Año': years,
+                'Modelo': modelos,
+                'Precio': precios,
+                'Kms': kms,
+                'Transmision': transmision,
+                't_combustible': t_combustible,
+                'Href': href
+              }, ignore_index=True )
 
-for auto in lista_precios:
-    autos_lista.append(auto.text)
-    # autos_lista.append()
+        except:
+            i = i + 1
+    
 
-driver.quit()
+    browser.find_element(By.CSS_SELECTOR, 'body > div.listing > div.container.listing-container > div.row.flex-nowrap.no-gutters > div:nth-child(1) > div:nth-child(3) > div:nth-child(2) > nav > ul > li:nth-child(7) > a').click()
 
-# Pandas (Crear data frame, guardar lista en archivo csv)
-df = pd.DataFrame({'Autos usados - Oxl':autos_lista})
-print(df)
-df.to_csv('Autos usados Oxl.csv', index=False)
+browser.quit()
+
+df.to_csv(f'ChileAutos-{hora}.csv')
+
+print('Autos que no cumple con datos mínimos: ' + str(i) )
+
+print('\nFinalizado.')
